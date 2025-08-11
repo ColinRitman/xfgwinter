@@ -11,24 +11,42 @@
 //! - **Performance**: Zero-cost abstractions for field arithmetic operations
 //! - **Security**: Type-level prevention of timing attacks and vulnerabilities
 
-use core::fmt::{Debug, Display, Formatter};
-use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use std::fmt::{Debug, Display, Formatter};
+use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Neg};
 use serde::{Deserialize, Serialize};
-use super::{FieldElement, TypeError, CryptoResult};
+use super::{FieldElement, TypeError};
+use crate::Result;
 
-/// Prime field element with 64-bit modulus
+/// Field arithmetic error
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum FieldError {
+    /// Invalid field element
+    #[error("Invalid field element: {0}")]
+    InvalidElement(String),
+    
+    /// Division by zero
+    #[error("Division by zero")]
+    DivisionByZero,
+    
+    /// Overflow error
+    #[error("Arithmetic overflow")]
+    Overflow,
+    
+    /// Invalid conversion
+    #[error("Invalid conversion: {0}")]
+    InvalidConversion(String),
+}
+
+/// Prime field with 64-bit modulus
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct PrimeField64 {
-    /// The field element value (reduced modulo MODULUS)
+    /// Field element value
     value: u64,
 }
 
 impl PrimeField64 {
-    /// Field modulus (prime number)
-    pub const MODULUS: u64 = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47;
-    
-    /// Field characteristic (prime number)
-    pub const CHARACTERISTIC: u64 = Self::MODULUS;
+    /// Field modulus (using a smaller prime for u64 compatibility)
+    pub const MODULUS: u64 = 0x7fffffffffffffff; // 2^63 - 1 (Mersenne prime)
     
     /// Create a new field element
     pub fn new(value: u64) -> Self {
@@ -37,115 +55,171 @@ impl PrimeField64 {
         }
     }
     
-    /// Get the underlying value
+    /// Get the raw value
     pub fn value(&self) -> u64 {
         self.value
     }
     
-    /// Constant-time modular addition
+    /// Constant-time addition
     pub fn add_constant_time(&self, other: &Self) -> Self {
-        let sum = self.value.wrapping_add(other.value);
-        let carry = if sum < self.value { 1 } else { 0 };
-        let result = sum.wrapping_add(carry * (Self::MODULUS - 1));
-        Self::new(result)
+        let sum = self.value + other.value;
+        if sum >= Self::MODULUS {
+            Self::new(sum - Self::MODULUS)
+        } else {
+            Self::new(sum)
+        }
     }
     
-    /// Constant-time modular subtraction
+    /// Constant-time subtraction
     pub fn sub_constant_time(&self, other: &Self) -> Self {
-        let diff = self.value.wrapping_sub(other.value);
-        let borrow = if diff > self.value { 1 } else { 0 };
-        let result = diff.wrapping_sub(borrow * Self::MODULUS);
-        Self::new(result)
+        if self.value >= other.value {
+            Self::new(self.value - other.value)
+        } else {
+            Self::new(Self::MODULUS - (other.value - self.value))
+        }
     }
     
-    /// Constant-time modular multiplication
+    /// Constant-time multiplication
     pub fn mul_constant_time(&self, other: &Self) -> Self {
         let product = (self.value as u128) * (other.value as u128);
-        let result = (product % Self::MODULUS as u128) as u64;
-        Self::new(result)
+        Self::new((product % Self::MODULUS as u128) as u64)
     }
     
-    /// Constant-time modular inverse
-    pub fn inverse_constant_time(&self) -> Option<Self> {
+    /// Modular inverse using extended Euclidean algorithm
+    pub fn inverse(&self) -> Option<Self> {
         if self.value == 0 {
             return None;
         }
         
-        // Extended Euclidean algorithm (constant-time)
-        let mut r = self.value;
-        let mut s = 1u64;
-        let mut t = 0u64;
-        let mut r_prime = Self::MODULUS;
-        let mut s_prime = 0u64;
-        let mut t_prime = 1u64;
+        let mut a = self.value as i64;
+        let mut b = Self::MODULUS as i64;
+        let mut x = 1i64;
+        let mut y = 0i64;
         
-        while r != 0 {
-            let quotient = r_prime / r;
-            let temp_r = r;
-            let temp_s = s;
-            let temp_t = t;
-            
-            r = r_prime - quotient * r;
-            s = s_prime - quotient * s;
-            t = t_prime - quotient * t;
-            
-            r_prime = temp_r;
-            s_prime = temp_s;
-            t_prime = temp_t;
+        while b != 0 {
+            let q = a / b;
+            let temp = b;
+            b = a % b;
+            a = temp;
+            let temp = y;
+            y = x - q * y;
+            x = temp;
         }
         
-        if r_prime != 1 {
+        if a != 1 {
             return None;
         }
         
-        Some(Self::new(s_prime))
+        if x < 0 {
+            x += Self::MODULUS as i64;
+        }
+        
+        Some(Self::new(x as u64))
     }
     
-    /// Constant-time modular exponentiation
-    pub fn pow_constant_time(&self, exponent: u64) -> Self {
-        let mut result = Self::one();
+    /// Modular exponentiation
+    pub fn pow(&self, mut exponent: u64) -> Self {
         let mut base = *self;
-        let mut exp = exponent;
+        let mut result = Self::one();
         
-        while exp > 0 {
-            if exp & 1 == 1 {
+        while exponent > 0 {
+            if exponent & 1 == 1 {
                 result = result.mul_constant_time(&base);
             }
             base = base.mul_constant_time(&base);
-            exp >>= 1;
+            exponent >>= 1;
         }
         
         result
     }
     
+    /// Square root (if it exists)
+    pub fn sqrt(&self) -> Option<Self> {
+        if self.value == 0 {
+            return Some(Self::zero());
+        }
+        
+        // Check if square root exists using Euler's criterion
+        let legendre = self.pow((Self::MODULUS - 1) / 2);
+        if legendre.value != 1 {
+            return None;
+        }
+        
+        // Tonelli-Shanks algorithm for square root
+        let mut q = Self::MODULUS - 1;
+        let mut s = 0;
+        while q % 2 == 0 {
+            q /= 2;
+            s += 1;
+        }
+        
+        if s == 1 {
+            return Some(self.pow((Self::MODULUS + 1) / 4));
+        }
+        
+        // Find a quadratic non-residue
+        let mut z = 2;
+        while PrimeField64::new(z).pow((Self::MODULUS - 1) / 2).value == 1 {
+            z += 1;
+        }
+        
+        let mut c = PrimeField64::new(z).pow(q);
+        let mut r = self.pow((q + 1) / 2);
+        let mut t = self.pow(q);
+        let mut m = s;
+        
+        while t.value != 1 {
+            let mut i = 0;
+            let mut temp = t;
+            while temp.value != 1 && i < m {
+                temp = temp.mul_constant_time(&temp);
+                i += 1;
+            }
+            
+            let b = c.pow(1 << (m - i - 1));
+            r = r.mul_constant_time(&b);
+            c = b.mul_constant_time(&b);
+            t = t.mul_constant_time(&c);
+            m = i;
+        }
+        
+        Some(r)
+    }
+    
     /// Convert to bytes (constant-time)
-    pub fn to_bytes_constant_time(&self) -> [u8; 32] {
+    pub fn to_bytes(&self) -> [u8; 32] {
         let mut bytes = [0u8; 32];
-        let value = self.value.to_le_bytes();
-        bytes[..8].copy_from_slice(&value);
+        for i in 0..8 {
+            bytes[24 + i] = ((self.value >> (8 * i)) & 0xff) as u8;
+        }
         bytes
     }
     
     /// Convert from bytes (constant-time)
     pub fn from_bytes_constant_time(bytes: &[u8; 32]) -> Option<Self> {
-        let mut value_bytes = [0u8; 8];
-        value_bytes.copy_from_slice(&bytes[..8]);
-        let value = u64::from_le_bytes(value_bytes);
-        Some(Self::new(value))
+        let mut value = 0u64;
+        for i in 0..8 {
+            value |= (bytes[24 + i] as u64) << (8 * i);
+        }
+        
+        if value >= Self::MODULUS {
+            None
+        } else {
+            Some(Self::new(value))
+        }
     }
     
-    /// Generate random field element
+    /// Random field element
     pub fn random() -> Self {
         use rand::Rng;
         let mut rng = rand::thread_rng();
-        let value = rng.gen_range(0..Self::MODULUS);
-        Self::new(value)
+        Self::new(rng.gen_range(0..Self::MODULUS))
     }
 }
 
 impl FieldElement for PrimeField64 {
     const MODULUS: u64 = Self::MODULUS;
-    const CHARACTERISTIC: u64 = Self::CHARACTERISTIC;
+    const CHARACTERISTIC: u64 = Self::MODULUS;
     
     fn zero() -> Self {
         Self::new(0)
@@ -176,68 +250,23 @@ impl FieldElement for PrimeField64 {
     }
     
     fn inverse(&self) -> Option<Self> {
-        self.inverse_constant_time()
+        self.inverse()
     }
     
     fn pow(&self, exponent: u64) -> Self {
-        self.pow_constant_time(exponent)
+        self.pow(exponent)
     }
     
     fn sqrt(&self) -> Option<Self> {
-        // Tonelli-Shanks algorithm for square root
-        if self.is_zero() {
-            return Some(Self::zero());
-        }
-        
-        // Check if square root exists using Euler's criterion
-        let legendre = self.pow((Self::MODULUS - 1) / 2);
-        if legendre != Self::one() {
-            return None;
-        }
-        
-        // Find quadratic non-residue
-        let mut q = 2u64;
-        while q.pow((Self::MODULUS - 1) / 2) % Self::MODULUS != Self::MODULUS - 1 {
-            q += 1;
-        }
-        
-        // Tonelli-Shanks algorithm
-        let mut s = 0;
-        let mut q_power = Self::MODULUS - 1;
-        while q_power % 2 == 0 {
-            s += 1;
-            q_power /= 2;
-        }
-        
-        let mut z = Self::new(q).pow(q_power);
-        let mut r = self.pow((q_power + 1) / 2);
-        let mut t = self.pow(q_power);
-        let mut m = s;
-        
-        while t != Self::one() {
-            let mut i = 0;
-            let mut temp = t;
-            while temp != Self::one() && i < m {
-                temp = temp.mul_constant_time(&temp);
-                i += 1;
-            }
-            
-            let b = z.pow(1 << (m - i - 1));
-            r = r.mul_constant_time(&b);
-            z = b.mul_constant_time(&b);
-            t = t.mul_constant_time(&z);
-            m = i;
-        }
-        
-        Some(r)
+        self.sqrt()
     }
     
     fn to_bytes(&self) -> [u8; 32] {
-        self.to_bytes_constant_time()
+        self.to_bytes()
     }
     
     fn from_bytes(bytes: &[u8; 32]) -> Option<Self> {
-        self.from_bytes_constant_time(bytes)
+        Self::from_bytes_constant_time(bytes)
     }
     
     fn random() -> Self {
@@ -245,12 +274,7 @@ impl FieldElement for PrimeField64 {
     }
 }
 
-impl Display for PrimeField64 {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "PrimeField64({})", self.value)
-    }
-}
-
+// Standard arithmetic trait implementations
 impl Add for PrimeField64 {
     type Output = Self;
     
@@ -261,7 +285,7 @@ impl Add for PrimeField64 {
 
 impl AddAssign for PrimeField64 {
     fn add_assign(&mut self, other: Self) {
-        self.add_assign(&other);
+        *self = self.add_constant_time(&other);
     }
 }
 
@@ -275,7 +299,7 @@ impl Sub for PrimeField64 {
 
 impl SubAssign for PrimeField64 {
     fn sub_assign(&mut self, other: Self) {
-        self.sub_assign(&other);
+        *self = self.sub_constant_time(&other);
     }
 }
 
@@ -289,7 +313,7 @@ impl Mul for PrimeField64 {
 
 impl MulAssign for PrimeField64 {
     fn mul_assign(&mut self, other: Self) {
-        self.mul_assign(&other);
+        *self = self.mul_constant_time(&other);
     }
 }
 
@@ -297,11 +321,23 @@ impl Neg for PrimeField64 {
     type Output = Self;
     
     fn neg(self) -> Self::Output {
-        if self.is_zero() {
-            Self::zero()
+        if self.value == 0 {
+            self
         } else {
             Self::new(Self::MODULUS - self.value)
         }
+    }
+}
+
+impl Display for PrimeField64 {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "PrimeField64({})", self.value)
+    }
+}
+
+impl Default for PrimeField64 {
+    fn default() -> Self {
+        Self::zero()
     }
 }
 

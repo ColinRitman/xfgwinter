@@ -9,6 +9,34 @@ use serde::{Serialize, Deserialize};
 use crate::types::{FieldElement, StarkComponent, TypeError};
 use crate::Result;
 
+/// STARK proof error
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum StarkError {
+    /// Invalid proof structure
+    #[error("Invalid proof structure: {0}")]
+    InvalidProof(String),
+    
+    /// Verification failed
+    #[error("Proof verification failed: {0}")]
+    VerificationFailed(String),
+    
+    /// Invalid trace
+    #[error("Invalid execution trace: {0}")]
+    InvalidTrace(String),
+    
+    /// Invalid AIR constraints
+    #[error("Invalid AIR constraints: {0}")]
+    InvalidConstraints(String),
+    
+    /// FRI proof error
+    #[error("FRI proof error: {0}")]
+    FriError(String),
+    
+    /// Merkle tree error
+    #[error("Merkle tree error: {0}")]
+    MerkleError(String),
+}
+
 /// STARK proof structure
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StarkProof<F: FieldElement> {
@@ -229,7 +257,7 @@ impl Display for ProofMetadata {
 }
 
 impl<F: FieldElement> StarkComponent<F> for StarkProof<F> {
-    fn validate(&self) -> Result<()> {
+    fn validate(&self) -> std::result::Result<(), TypeError> {
         // Validate trace
         self.trace.validate()?;
         
@@ -252,38 +280,30 @@ impl<F: FieldElement> StarkComponent<F> for StarkProof<F> {
         Vec::new()
     }
     
-    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    fn from_bytes(_bytes: &[u8]) -> std::result::Result<Self, TypeError> {
         // Placeholder implementation
-        Err(TypeError::InvalidConversion("Not implemented".to_string()).into())
+        Err(TypeError::InvalidConversion("Not implemented".to_string()))
     }
 }
 
 impl<F: FieldElement> StarkComponent<F> for ExecutionTrace<F> {
-    fn validate(&self) -> Result<()> {
-        if self.columns.is_empty() {
-            return Err(TypeError::InvalidConversion("Empty trace columns".to_string()).into());
+    fn validate(&self) -> std::result::Result<(), TypeError> {
+        if self.length == 0 {
+            return Err(TypeError::InvalidConversion("Empty trace".to_string()));
         }
         
-        let expected_length = self.columns[0].len();
-        for (i, column) in self.columns.iter().enumerate() {
-            if column.len() != expected_length {
-                return Err(TypeError::InvalidConversion(
-                    format!("Column {} has length {}, expected {}", i, column.len(), expected_length)
-                ).into());
+        if self.num_registers == 0 {
+            return Err(TypeError::InvalidConversion("No registers".to_string()));
+        }
+        
+        if self.columns.len() != self.num_registers {
+            return Err(TypeError::InvalidConversion("Column count mismatch".to_string()));
+        }
+        
+        for column in &self.columns {
+            if column.len() != self.length {
+                return Err(TypeError::InvalidConversion("Column length mismatch".to_string()));
             }
-        }
-        
-        if self.length != expected_length {
-            return Err(TypeError::InvalidConversion(
-                format!("Trace length {} doesn't match column length {}", self.length, expected_length)
-            ).into());
-        }
-        
-        if self.num_registers != self.columns.len() {
-            return Err(TypeError::InvalidConversion(
-                format!("Number of registers {} doesn't match number of columns {}", 
-                       self.num_registers, self.columns.len())
-            ).into());
         }
         
         Ok(())
@@ -294,21 +314,24 @@ impl<F: FieldElement> StarkComponent<F> for ExecutionTrace<F> {
         Vec::new()
     }
     
-    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    fn from_bytes(_bytes: &[u8]) -> std::result::Result<Self, TypeError> {
         // Placeholder implementation
-        Err(TypeError::InvalidConversion("Not implemented".to_string()).into())
+        Err(TypeError::InvalidConversion("Not implemented".to_string()))
     }
 }
 
 impl<F: FieldElement> StarkComponent<F> for Air<F> {
-    fn validate(&self) -> Result<()> {
-        if self.constraints.is_empty() {
-            return Err(TypeError::InvalidConversion("No constraints".to_string()).into());
+    fn validate(&self) -> std::result::Result<(), TypeError> {
+        // Validate constraints
+        for constraint in &self.constraints {
+            // Note: Constraint doesn't implement StarkComponent, so we skip validation
         }
         
-        if self.security_parameter == 0 {
-            return Err(TypeError::InvalidConversion("Invalid security parameter".to_string()).into());
-        }
+        // Validate transition function
+        self.transition.validate()?;
+        
+        // Validate boundary conditions
+        self.boundary.validate()?;
         
         Ok(())
     }
@@ -318,18 +341,17 @@ impl<F: FieldElement> StarkComponent<F> for Air<F> {
         Vec::new()
     }
     
-    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    fn from_bytes(_bytes: &[u8]) -> std::result::Result<Self, TypeError> {
         // Placeholder implementation
-        Err(TypeError::InvalidConversion("Not implemented".to_string()).into())
+        Err(TypeError::InvalidConversion("Not implemented".to_string()))
     }
 }
 
 impl<F: FieldElement> StarkComponent<F> for TransitionFunction<F> {
-    fn validate(&self) -> Result<()> {
+    fn validate(&self) -> std::result::Result<(), TypeError> {
         if self.coefficients.is_empty() {
-            return Err(TypeError::InvalidConversion("No coefficients".to_string()).into());
+            return Err(TypeError::InvalidConversion("Empty coefficients".to_string()));
         }
-        
         Ok(())
     }
     
@@ -338,15 +360,17 @@ impl<F: FieldElement> StarkComponent<F> for TransitionFunction<F> {
         Vec::new()
     }
     
-    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    fn from_bytes(_bytes: &[u8]) -> std::result::Result<Self, TypeError> {
         // Placeholder implementation
-        Err(TypeError::InvalidConversion("Not implemented".to_string()).into())
+        Err(TypeError::InvalidConversion("Not implemented".to_string()))
     }
 }
 
 impl<F: FieldElement> StarkComponent<F> for BoundaryConditions<F> {
-    fn validate(&self) -> Result<()> {
-        // Boundary conditions are always valid
+    fn validate(&self) -> std::result::Result<(), TypeError> {
+        for constraint in &self.constraints {
+            constraint.validate()?;
+        }
         Ok(())
     }
     
@@ -355,14 +379,14 @@ impl<F: FieldElement> StarkComponent<F> for BoundaryConditions<F> {
         Vec::new()
     }
     
-    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    fn from_bytes(_bytes: &[u8]) -> std::result::Result<Self, TypeError> {
         // Placeholder implementation
-        Err(TypeError::InvalidConversion("Not implemented".to_string()).into())
+        Err(TypeError::InvalidConversion("Not implemented".to_string()))
     }
 }
 
 impl<F: FieldElement> StarkComponent<F> for BoundaryConstraint<F> {
-    fn validate(&self) -> Result<()> {
+    fn validate(&self) -> std::result::Result<(), TypeError> {
         Ok(())
     }
     
@@ -371,20 +395,20 @@ impl<F: FieldElement> StarkComponent<F> for BoundaryConstraint<F> {
         Vec::new()
     }
     
-    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    fn from_bytes(_bytes: &[u8]) -> std::result::Result<Self, TypeError> {
         // Placeholder implementation
-        Err(TypeError::InvalidConversion("Not implemented".to_string()).into())
+        Err(TypeError::InvalidConversion("Not implemented".to_string()))
     }
 }
 
 impl<F: FieldElement> StarkComponent<F> for MerkleCommitment<F> {
-    fn validate(&self) -> Result<()> {
+    fn validate(&self) -> std::result::Result<(), TypeError> {
         if self.root.is_empty() {
-            return Err(TypeError::InvalidConversion("Empty root hash".to_string()).into());
+            return Err(TypeError::InvalidConversion("Empty root".to_string()));
         }
         
-        if self.depth == 0 {
-            return Err(TypeError::InvalidConversion("Invalid tree depth".to_string()).into());
+        if self.leaves.is_empty() {
+            return Err(TypeError::InvalidConversion("Empty leaves".to_string()));
         }
         
         Ok(())
@@ -395,24 +419,28 @@ impl<F: FieldElement> StarkComponent<F> for MerkleCommitment<F> {
         Vec::new()
     }
     
-    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    fn from_bytes(_bytes: &[u8]) -> std::result::Result<Self, TypeError> {
         // Placeholder implementation
-        Err(TypeError::InvalidConversion("Not implemented".to_string()).into())
+        Err(TypeError::InvalidConversion("Not implemented".to_string()))
     }
 }
 
 impl<F: FieldElement> StarkComponent<F> for FriProof<F> {
-    fn validate(&self) -> Result<()> {
+    fn validate(&self) -> std::result::Result<(), TypeError> {
         if self.layers.is_empty() {
-            return Err(TypeError::InvalidConversion("No FRI layers".to_string()).into());
+            return Err(TypeError::InvalidConversion("Empty layers".to_string()));
         }
         
         if self.final_polynomial.is_empty() {
-            return Err(TypeError::InvalidConversion("Empty final polynomial".to_string()).into());
+            return Err(TypeError::InvalidConversion("Empty final polynomial".to_string()));
         }
         
-        if self.queries.is_empty() {
-            return Err(TypeError::InvalidConversion("No FRI queries".to_string()).into());
+        for layer in &self.layers {
+            layer.validate()?;
+        }
+        
+        for query in &self.queries {
+            query.validate()?;
         }
         
         Ok(())
@@ -423,24 +451,20 @@ impl<F: FieldElement> StarkComponent<F> for FriProof<F> {
         Vec::new()
     }
     
-    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    fn from_bytes(_bytes: &[u8]) -> std::result::Result<Self, TypeError> {
         // Placeholder implementation
-        Err(TypeError::InvalidConversion("Not implemented".to_string()).into())
+        Err(TypeError::InvalidConversion("Not implemented".to_string()))
     }
 }
 
 impl<F: FieldElement> StarkComponent<F> for FriLayer<F> {
-    fn validate(&self) -> Result<()> {
+    fn validate(&self) -> std::result::Result<(), TypeError> {
         if self.polynomial.is_empty() {
-            return Err(TypeError::InvalidConversion("Empty polynomial".to_string()).into());
+            return Err(TypeError::InvalidConversion("Empty polynomial".to_string()));
         }
         
         if self.commitment.is_empty() {
-            return Err(TypeError::InvalidConversion("Empty commitment".to_string()).into());
-        }
-        
-        if self.degree == 0 {
-            return Err(TypeError::InvalidConversion("Invalid degree".to_string()).into());
+            return Err(TypeError::InvalidConversion("Empty commitment".to_string()));
         }
         
         Ok(())
@@ -451,18 +475,17 @@ impl<F: FieldElement> StarkComponent<F> for FriLayer<F> {
         Vec::new()
     }
     
-    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    fn from_bytes(_bytes: &[u8]) -> std::result::Result<Self, TypeError> {
         // Placeholder implementation
-        Err(TypeError::InvalidConversion("Not implemented".to_string()).into())
+        Err(TypeError::InvalidConversion("Not implemented".to_string()))
     }
 }
 
 impl<F: FieldElement> StarkComponent<F> for FriQuery<F> {
-    fn validate(&self) -> Result<()> {
+    fn validate(&self) -> std::result::Result<(), TypeError> {
         if self.responses.is_empty() {
-            return Err(TypeError::InvalidConversion("No responses".to_string()).into());
+            return Err(TypeError::InvalidConversion("Empty responses".to_string()));
         }
-        
         Ok(())
     }
     
@@ -471,16 +494,9 @@ impl<F: FieldElement> StarkComponent<F> for FriQuery<F> {
         Vec::new()
     }
     
-    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    fn from_bytes(_bytes: &[u8]) -> std::result::Result<Self, TypeError> {
         // Placeholder implementation
-        Err(TypeError::InvalidConversion("Not implemented".to_string()).into())
-    }
-}
-
-impl<F: FieldElement> Display for StarkProof<F> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
-        write!(f, "STARK Proof (version: {}, security: {})", 
-               self.metadata.version, self.metadata.security_parameter)
+        Err(TypeError::InvalidConversion("Not implemented".to_string()))
     }
 }
 

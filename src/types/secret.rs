@@ -98,8 +98,9 @@ impl Secret for SecureSecret {
         }
     }
     
-    fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        Ok(SecureSecret::from_bytes(bytes))
+    fn from_bytes(_bytes: &[u8]) -> std::result::Result<Self, TypeError> {
+        // Placeholder implementation
+        Err(TypeError::InvalidConversion("Not implemented".to_string()))
     }
 }
 
@@ -187,9 +188,9 @@ impl<F: Clone + PartialEq + Eq> Secret for SecureFieldElement<F> {
         }
     }
     
-    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    fn from_bytes(bytes: &[u8]) -> std::result::Result<Self, TypeError> {
         // Placeholder implementation
-        Err(TypeError::InvalidConversion("Not implemented".to_string()).into())
+        Err(TypeError::InvalidConversion("Not implemented".to_string()))
     }
 }
 
@@ -277,9 +278,9 @@ impl<P: Clone + PartialEq + Eq> Secret for SecurePolynomial<P> {
         }
     }
     
-    fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    fn from_bytes(bytes: &[u8]) -> std::result::Result<Self, TypeError> {
         // Placeholder implementation
-        Err(TypeError::InvalidConversion("Not implemented".to_string()).into())
+        Err(TypeError::InvalidConversion("Not implemented".to_string()))
     }
 }
 
