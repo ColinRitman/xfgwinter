@@ -99,10 +99,9 @@ pub trait FieldElement:
     fn random() -> Self;
 }
 
-/// Trait for polynomial types with field element coefficients
+/// Trait for polynomial operations
 pub trait Polynomial<F: FieldElement>: 
-    Clone + Debug + Display + PartialEq + Eq +
-    Serialize + for<'de> Deserialize<'de>
+    Clone + Debug + Display + PartialEq + Eq
 {
     /// Degree of the polynomial
     fn degree(&self) -> usize;
@@ -134,11 +133,10 @@ pub trait Polynomial<F: FieldElement>:
 
 /// Trait for STARK proof components
 pub trait StarkComponent<F: FieldElement>: 
-    Clone + Debug + Display + PartialEq + Eq +
-    Serialize + for<'de> Deserialize<'de>
+    Clone + Debug + Display + PartialEq + Eq
 {
     /// Validate the component
-    fn validate(&self) -> Result<(), TypeError>;
+    fn validate(&self) -> Result<()>;
     
     /// Serialize to bytes
     fn to_bytes(&self) -> Vec<u8>;
@@ -149,8 +147,7 @@ pub trait StarkComponent<F: FieldElement>:
 
 /// Trait for secret types with secure zeroization
 pub trait Secret: 
-    Clone + Debug + PartialEq + Eq +
-    Serialize + for<'de> Deserialize<'de>
+    Clone + Debug + PartialEq + Eq
 {
     /// Zeroize the secret in memory
     fn zeroize(&mut self);

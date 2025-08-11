@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use super::{FieldElement, Polynomial, TypeError, CryptoResult};
 
 /// Polynomial with field element coefficients
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FieldPolynomial<F: FieldElement> {
     /// Polynomial coefficients (constant term first)
     coefficients: Vec<F>,

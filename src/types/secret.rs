@@ -5,7 +5,8 @@
 
 use core::fmt::{Debug, Formatter};
 use serde::{Deserialize, Serialize};
-use super::{Secret, TypeError, CryptoResult};
+use super::{Secret, TypeError};
+use crate::Result;
 
 /// Secure secret wrapper with zeroization
 #[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -98,7 +99,7 @@ impl Secret for SecureSecret {
     }
     
     fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        Ok(Self::from_bytes(bytes))
+        Ok(SecureSecret::from_bytes(bytes))
     }
 }
 
@@ -119,17 +120,15 @@ impl Drop for SecureSecret {
 }
 
 /// Secure field element secret
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SecureFieldElement<F> {
+#[derive(Clone, PartialEq, Eq)]
+pub struct SecureFieldElement<F: Clone + PartialEq + Eq> {
     /// The field element value
-    #[serde(skip_serializing)]
     value: Option<F>,
     /// Zeroization flag
-    #[serde(skip)]
     zeroized: bool,
 }
 
-impl<F> SecureFieldElement<F> {
+impl<F: Clone + PartialEq + Eq> SecureFieldElement<F> {
     /// Create a new secure field element
     pub fn new(value: F) -> Self {
         Self {
@@ -170,7 +169,7 @@ impl<F> SecureFieldElement<F> {
     }
 }
 
-impl<F> Secret for SecureFieldElement<F> {
+impl<F: Clone + PartialEq + Eq> Secret for SecureFieldElement<F> {
     fn zeroize(&mut self) {
         self.zeroize();
     }
@@ -189,12 +188,12 @@ impl<F> Secret for SecureFieldElement<F> {
     }
     
     fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        // This would need to be implemented based on the field element type
-        Err(TypeError::InvalidConversion("Not implemented".to_string()))
+        // Placeholder implementation
+        Err(TypeError::InvalidConversion("Not implemented".to_string()).into())
     }
 }
 
-impl<F> Debug for SecureFieldElement<F> {
+impl<F: Clone + PartialEq + Eq> Debug for SecureFieldElement<F> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         if self.zeroized {
             write!(f, "SecureFieldElement(***ZEROIZED***)")
@@ -204,24 +203,22 @@ impl<F> Debug for SecureFieldElement<F> {
     }
 }
 
-impl<F> Drop for SecureFieldElement<F> {
+impl<F: Clone + PartialEq + Eq> Drop for SecureFieldElement<F> {
     fn drop(&mut self) {
         self.zeroize();
     }
 }
 
 /// Secure polynomial secret
-#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SecurePolynomial<P> {
+#[derive(Clone, PartialEq, Eq)]
+pub struct SecurePolynomial<P: Clone + PartialEq + Eq> {
     /// The polynomial value
-    #[serde(skip_serializing)]
     value: Option<P>,
     /// Zeroization flag
-    #[serde(skip)]
     zeroized: bool,
 }
 
-impl<P> SecurePolynomial<P> {
+impl<P: Clone + PartialEq + Eq> SecurePolynomial<P> {
     /// Create a new secure polynomial
     pub fn new(value: P) -> Self {
         Self {
@@ -262,7 +259,7 @@ impl<P> SecurePolynomial<P> {
     }
 }
 
-impl<P> Secret for SecurePolynomial<P> {
+impl<P: Clone + PartialEq + Eq> Secret for SecurePolynomial<P> {
     fn zeroize(&mut self) {
         self.zeroize();
     }
@@ -281,12 +278,12 @@ impl<P> Secret for SecurePolynomial<P> {
     }
     
     fn from_bytes(bytes: &[u8]) -> Result<Self> {
-        // This would need to be implemented based on the polynomial type
-        Err(TypeError::InvalidConversion("Not implemented".to_string()))
+        // Placeholder implementation
+        Err(TypeError::InvalidConversion("Not implemented".to_string()).into())
     }
 }
 
-impl<P> Debug for SecurePolynomial<P> {
+impl<P: Clone + PartialEq + Eq> Debug for SecurePolynomial<P> {
     fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         if self.zeroized {
             write!(f, "SecurePolynomial(***ZEROIZED***)")
@@ -296,7 +293,7 @@ impl<P> Debug for SecurePolynomial<P> {
     }
 }
 
-impl<P> Drop for SecurePolynomial<P> {
+impl<P: Clone + PartialEq + Eq> Drop for SecurePolynomial<P> {
     fn drop(&mut self) {
         self.zeroize();
     }
