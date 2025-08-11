@@ -44,12 +44,14 @@ pub mod polynomial;
 pub mod stark;
 pub mod types;
 pub mod utils;
+pub mod winterfell_integration;
 
 pub use field::*;
 pub use polynomial::*;
 pub use stark::*;
 pub use types::*;
 pub use utils::*;
+pub use winterfell_integration::*;
 
 /// Re-exports for common cryptographic operations
 pub mod crypto {
