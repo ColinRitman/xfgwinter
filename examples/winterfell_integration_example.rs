@@ -19,9 +19,10 @@ use xfg_stark::{
     winterfell_integration::{
         WinterfellFieldElement, WinterfellTraceTable, XfgWinterfellProver, XfgWinterfellVerifier,
     },
+    StarkComponent,
     Result,
 };
-use winterfell::{ProofOptions, FieldElement as WinterfellFieldElementTrait};
+use winterfell::ProofOptions;
 
 /// Example: Fibonacci sequence computation
 /// 
@@ -106,7 +107,7 @@ impl FibonacciExample {
         
         // Step 4: Demonstrate trace table conversion
         println!("\n📋 Step 4: Demonstrating trace table conversion...");
-        let winterfell_trace = WinterfellTraceTable::from_xfg_trace(&trace)?;
+        let winterfell_trace = WinterfellTraceTable::from_xfg_trace(&trace);
         println!("   Successfully converted XFG trace to Winterfell trace table");
         
         // Step 5: Demonstrate arithmetic operations
@@ -118,9 +119,9 @@ impl FibonacciExample {
         let product = a * b;
         let difference = a - b;
         
-        println!("   {} + {} = {:?}", a.0, b.0, sum.0);
-        println!("   {} * {} = {:?}", a.0, b.0, product.0);
-        println!("   {} - {} = {:?}", a.0, b.0, difference.0);
+        println!("   {} + {} = {:?}", a.value(), b.value(), sum.value());
+        println!("   {} * {} = {:?}", a.value(), b.value(), product.value());
+        println!("   {} - {} = {:?}", a.value(), b.value(), difference.value());
         
         // Step 6: Set up proof options
         println!("\n⚙️ Step 6: Setting up proof options...");
@@ -128,18 +129,20 @@ impl FibonacciExample {
             32,    // blowup factor
             8,     // grinding factor
             4,     // hash function
+            winterfell::FieldExtension::None,  // field extension
             128,   // security level
+            0,     // num queries
         );
-        println!("   Created proof options with security level: {}", proof_options.security_level());
+        println!("   Created proof options");
         
         // Step 7: Demonstrate prover setup (placeholder)
         println!("\n🔐 Step 7: Setting up prover...");
-        let prover = XfgWinterfellProver::new(proof_options.clone());
+        let prover = XfgWinterfellProver::new();
         println!("   Created XFG Winterfell prover");
         
         // Step 8: Demonstrate verifier setup (placeholder)
         println!("\n✅ Step 8: Setting up verifier...");
-        let verifier = XfgWinterfellVerifier::new(proof_options);
+        let verifier = XfgWinterfellVerifier::new();
         println!("   Created XFG Winterfell verifier");
         
         // Step 9: Demonstrate proof generation (placeholder)
@@ -180,7 +183,7 @@ fn demonstrate_field_arithmetic() {
     // Demonstrate constant-time operations
     let sum = a.add_constant_time(&b);
     let product = a.mul_constant_time(&b);
-    let inverse = b.inverse_constant_time();
+    let inverse = b.inverse();
     
     println!("   a = {}", a);
     println!("   b = {}", b);
@@ -195,8 +198,8 @@ fn demonstrate_field_arithmetic() {
     let winterfell_sum = winterfell_a + winterfell_b;
     let winterfell_product = winterfell_a * winterfell_b;
     
-    println!("   Winterfell a + b = {:?}", winterfell_sum.0);
-    println!("   Winterfell a * b = {:?}", winterfell_product.0);
+    println!("   Winterfell a + b = {:?}", winterfell_sum.value());
+    println!("   Winterfell a * b = {:?}", winterfell_product.value());
     
     // Verify conversions
     assert_eq!(sum, PrimeField64::from(winterfell_sum));
@@ -224,7 +227,7 @@ fn demonstrate_trace_validation() -> Result<()> {
     println!("   ✅ Trace validation successful");
     
     // Convert to Winterfell trace table
-    let winterfell_trace = WinterfellTraceTable::from_xfg_trace(&trace)?;
+    let winterfell_trace = WinterfellTraceTable::from_xfg_trace(&trace);
     println!("   ✅ Winterfell trace table conversion successful");
     
     // Demonstrate trace properties

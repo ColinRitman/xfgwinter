@@ -442,8 +442,8 @@ mod tests {
         assert_eq!(a + b, PrimeField64::new(8));
         assert_eq!(a - b, PrimeField64::new(2));
         assert_eq!(a * b, PrimeField64::new(15));
-        assert_eq!(a.zero(), PrimeField64::new(0));
-        assert_eq!(a.one(), PrimeField64::new(1));
+        assert_eq!(PrimeField64::zero(), PrimeField64::new(0));
+        assert_eq!(PrimeField64::one(), PrimeField64::new(1));
     }
 
     #[test]
