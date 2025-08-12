@@ -402,9 +402,9 @@ mod tests {
             ConstraintType::Algebraic,
         );
         
-        assert_eq!(transition_constraint.constraint_type(), ConstraintType::Transition);
-        assert_eq!(boundary_constraint.constraint_type(), ConstraintType::Boundary);
-        assert_eq!(algebraic_constraint.constraint_type(), ConstraintType::Algebraic);
+        assert_eq!(transition_constraint.constraint_type(), &ConstraintType::Transition);
+        assert_eq!(boundary_constraint.constraint_type(), &ConstraintType::Boundary);
+        assert_eq!(algebraic_constraint.constraint_type(), &ConstraintType::Algebraic);
     }
 
     #[test]
@@ -414,8 +414,8 @@ mod tests {
         builder
             .linear(PrimeField64::new(1), PrimeField64::new(2))
             .quadratic(PrimeField64::new(1), PrimeField64::new(0), PrimeField64::new(1))
-            .transition(PrimeField64::new(1), PrimeField64::new(1))
-            .boundary(PrimeField64::new(1), PrimeField64::new(0));
+            .transition(vec![PrimeField64::new(1), PrimeField64::new(1)])
+            .boundary(0, PrimeField64::new(0));
         
         let system = builder.build();
         assert_eq!(system.len(), 4);

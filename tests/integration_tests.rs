@@ -39,8 +39,8 @@ mod test_utils {
             ),
         ];
 
-        let transition = TransitionFunction::new(2, 1, 1);
-        let mut boundary = BoundaryConditions::new();
+        let transition = TransitionFunction::new(vec![vec![PrimeField64::one()]], 2);
+        let mut boundary = BoundaryConditions::new(vec![]);
         
         // Add initial conditions: F(0) = 0, F(1) = 1
         boundary.add_constraint(BoundaryConstraint::new(
@@ -50,7 +50,7 @@ mod test_utils {
             0, 1, PrimeField64::one(), BoundaryType::Initial
         ));
 
-        Air::new(constraints, transition, boundary, 128, 1, 2)
+        Air::new(constraints, transition, boundary, 128)
     }
 
     /// Create a simple counter AIR
@@ -63,15 +63,15 @@ mod test_utils {
             ),
         ];
 
-        let transition = TransitionFunction::new(1, 1, 1);
-        let mut boundary = BoundaryConditions::new();
+        let transition = TransitionFunction::new(vec![vec![PrimeField64::one()]], 1);
+        let mut boundary = BoundaryConditions::new(vec![]);
         
         // Start at 0
         boundary.add_constraint(BoundaryConstraint::new(
             0, 0, PrimeField64::zero(), BoundaryType::Initial
         ));
 
-        Air::new(constraints, transition, boundary, 128, 1, 1)
+        Air::new(constraints, transition, boundary, 128)
     }
 
     /// Create test polynomial
@@ -102,7 +102,8 @@ fn test_complete_stark_proof_workflow() {
     
     // Step 1: Generate proof
     let prover = StarkProver::new(128);
-    let proof = prover.prove(&air).expect("Proof generation should succeed");
+    let initial_state = vec![PrimeField64::zero(), PrimeField64::one()];
+    let proof = prover.prove(&air, &initial_state, 100).expect("Proof generation should succeed");
     
     // Step 2: Verify proof
     let verifier = StarkVerifier::new(128);
@@ -175,18 +176,41 @@ fn test_winterfell_integration() {
         vec![PrimeField64::new(5), PrimeField64::new(6)],
     ];
     
+    // Create execution trace
+    let trace = ExecutionTrace {
+        columns: vec![
+            vec![PrimeField64::new(1), PrimeField64::new(3), PrimeField64::new(5)],
+            vec![PrimeField64::new(2), PrimeField64::new(4), PrimeField64::new(6)],
+        ],
+        length: 3,
+        num_registers: 2,
+    };
+    
     // Create trace table
-    let trace_table = WinterfellTraceTable::from_xfg_trace(&trace_data);
+    let trace_table = WinterfellTraceTable::from_xfg_trace(&trace);
     
     // Test prover
     let prover = XfgWinterfellProver::new();
-    let proof_result = prover.prove(&trace_table);
+    let air = crate::types::stark::Air {
+        constraints: vec![],
+        transition: crate::types::stark::TransitionFunction {
+            coefficients: vec![],
+            degree: 1,
+            num_inputs: 1,
+            num_outputs: 1,
+        },
+        boundary: crate::types::stark::BoundaryConditions {
+            constraints: vec![],
+        },
+        security_parameter: 128,
+    };
+    let proof_result = prover.prove(&trace_table, &air);
     assert!(proof_result.is_ok(), "Winterfell proof generation should succeed");
     
     // Test verifier
     let verifier = XfgWinterfellVerifier::new();
     if let Ok(proof) = proof_result {
-        let verify_result = verifier.verify(&proof);
+        let verify_result = verifier.verify(&proof, &air);
         assert!(verify_result.is_ok(), "Winterfell proof verification should succeed");
     }
 }
@@ -244,12 +268,13 @@ fn test_error_handling() {
     
     // Test with empty AIR
     let empty_constraints = vec![];
-    let transition = TransitionFunction::new(1, 1, 1);
-    let boundary = BoundaryConditions::new();
-    let empty_air = Air::new(empty_constraints, transition, boundary, 128, 1, 1);
+    let transition = TransitionFunction::new(vec![vec![PrimeField64::one()]], 1);
+    let boundary = BoundaryConditions::new(vec![]);
+    let empty_air = Air::new(empty_constraints, transition, boundary, 128);
     
     let prover = StarkProver::new(128);
-    let result = prover.prove(&empty_air);
+    let initial_state = vec![PrimeField64::zero()];
+    let result = prover.prove(&empty_air, &initial_state, 10);
     // Should handle empty constraints gracefully
     
     // Test with invalid polynomial for FRI
@@ -271,7 +296,8 @@ fn test_cross_component_integration() {
     // 1. Create AIR and generate STARK proof
     let air = test_utils::create_counter_air();
     let prover = StarkProver::new(128);
-    let proof = prover.prove(&air).expect("STARK proof should succeed");
+    let initial_state = vec![PrimeField64::zero()];
+    let proof = prover.prove(&air, &initial_state, 100).expect("STARK proof should succeed");
     
     // 2. Extract polynomial from proof and create FRI proof
     let polynomial = test_utils::create_test_polynomial();
@@ -325,8 +351,8 @@ fn test_real_world_scenario() {
         ),
     ];
     
-    let transition = TransitionFunction::new(2, 2, 2);
-    let mut boundary = BoundaryConditions::new();
+    let transition = TransitionFunction::new(vec![vec![PrimeField64::one()], vec![PrimeField64::one()]], 2);
+    let mut boundary = BoundaryConditions::new(vec![]);
     
     // Initial conditions: sum=0, counter=1
     boundary.add_constraint(BoundaryConstraint::new(0, 0, PrimeField64::zero(), BoundaryType::Initial));
@@ -335,11 +361,12 @@ fn test_real_world_scenario() {
     // Final condition: sum should equal expected_sum
     boundary.add_constraint(BoundaryConstraint::new(0, n-1, PrimeField64::new(expected_sum as u64), BoundaryType::Final));
     
-    let air = Air::new(constraints, transition, boundary, 128, 1, 2);
+    let air = Air::new(constraints, transition, boundary, 128);
     
     // Generate and verify proof
     let prover = StarkProver::new(128);
-    let proof = prover.prove(&air).expect("Real-world proof should succeed");
+    let initial_state = vec![PrimeField64::zero(), PrimeField64::one()];
+    let proof = prover.prove(&air, &initial_state, n).expect("Real-world proof should succeed");
     
     let verifier = StarkVerifier::new(128);
     let is_valid = verifier.verify(&proof).expect("Real-world verification should succeed");
@@ -371,7 +398,8 @@ fn test_performance_optimization() {
         let poly1 = test_utils::create_test_polynomial();
         let poly2 = test_utils::create_test_polynomial();
         for _ in 0..100 {
-            let _sum = poly1.clone() + poly2.clone();
+            // Simple polynomial operations (element-wise addition)
+            let _sum: Vec<PrimeField64> = poly1.iter().zip(poly2.iter()).map(|(a, b)| *a + *b).collect();
         }
         section.end(&mut profiler);
     }
@@ -397,10 +425,11 @@ fn test_security_parameters() {
     
     for security_level in security_levels {
         let prover = StarkProver::new(security_level);
-        let proof = prover.prove(&air).expect("Proof should succeed with security level {}", security_level);
+        let initial_state = vec![PrimeField64::zero(), PrimeField64::one()];
+        let proof = prover.prove(&air, &initial_state, 100).expect(&format!("Proof should succeed with security level {}", security_level));
         
         let verifier = StarkVerifier::new(security_level);
-        let is_valid = verifier.verify(&proof).expect("Verification should succeed with security level {}", security_level);
+        let is_valid = verifier.verify(&proof).expect(&format!("Verification should succeed with security level {}", security_level));
         
         assert!(is_valid, "Proof should be valid with security level {}", security_level);
     }
@@ -474,7 +503,8 @@ fn test_concurrent_operations() {
         let air_clone = air.clone();
         thread::spawn(move || {
             let prover = StarkProver::new(128);
-            prover.prove(&air_clone)
+            let initial_state = vec![PrimeField64::zero(), PrimeField64::one()];
+            prover.prove(&air_clone, &initial_state, 100)
         })
     }).collect();
     
@@ -523,17 +553,18 @@ fn test_error_recovery() {
         ),
     ];
     
-    let transition = TransitionFunction::new(1, 1, 1);
-    let boundary = BoundaryConditions::new();
-    let invalid_air = Air::new(invalid_constraints, transition, boundary, 128, 1, 1);
+    let transition = TransitionFunction::new(vec![vec![PrimeField64::one()]], 1);
+    let boundary = BoundaryConditions::new(vec![]);
+    let invalid_air = Air::new(invalid_constraints, transition, boundary, 128);
     
     let prover = StarkProver::new(128);
-    let result = prover.prove(&invalid_air);
+    let initial_state = vec![PrimeField64::zero()];
+    let result = prover.prove(&invalid_air, &initial_state, 10);
     // Should handle invalid AIR gracefully
     
     // Test with corrupted proof (should detect corruption)
     let valid_air = test_utils::create_fibonacci_air();
-    let valid_proof = prover.prove(&valid_air).expect("Valid proof should succeed");
+    let valid_proof = prover.prove(&valid_air, &vec![PrimeField64::zero(), PrimeField64::one()], 100).expect("Valid proof should succeed");
     
     let verifier = StarkVerifier::new(128);
     let is_valid = verifier.verify(&valid_proof).expect("Valid proof should verify");
@@ -546,7 +577,8 @@ fn test_comprehensive_validation() {
     
     let air = test_utils::create_fibonacci_air();
     let prover = StarkProver::new(128);
-    let proof = prover.prove(&air).expect("Proof should succeed");
+    let initial_state = vec![PrimeField64::zero(), PrimeField64::one()];
+    let proof = prover.prove(&air, &initial_state, 100).expect("Proof should succeed");
     
     // Validate each component
     let trace_validation = proof.trace.validate();
@@ -560,6 +592,6 @@ fn test_comprehensive_validation() {
     
     // Validate metadata
     assert_eq!(proof.metadata.version, 1, "Version should be 1");
-    assert!(proof.metadata.field_modulus > 0, "Field modulus should be positive");
+    assert!(!proof.metadata.field_modulus.is_empty(), "Field modulus should not be empty");
     assert!(proof.metadata.proof_size > 0, "Proof size should be positive");
 }
