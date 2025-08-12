@@ -47,6 +47,7 @@ pub mod utils;
 pub mod air;
 pub mod proof;
 pub mod winterfell_integration;
+pub mod benchmarks;
 
 pub use field::*;
 pub use polynomial::*;
@@ -56,6 +57,7 @@ pub use utils::*;
 pub use air::*;
 pub use proof::*;
 pub use winterfell_integration::*;
+pub use benchmarks::*;
 
 /// Re-exports for common cryptographic operations
 pub mod crypto {

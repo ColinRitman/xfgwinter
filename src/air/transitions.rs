@@ -328,11 +328,11 @@ mod tests {
     }
 
     #[test]
-    fn test_transition_validation() {
-        let valid_transition = TransitionFunction::identity(2);
+    fn test_transition_function_validation() {
+        let valid_transition: TransitionFunction<PrimeField64> = TransitionFunction::identity(2);
         assert!(valid_transition.validate().is_ok());
-
-        let invalid_transition = TransitionFunction::new(vec![], 1);
+        
+        let invalid_transition = TransitionFunction::new(vec![], 0);
         assert!(invalid_transition.validate().is_err());
     }
 

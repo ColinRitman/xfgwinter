@@ -331,30 +331,93 @@ mod tests {
     }
 
     #[test]
-    fn test_constraint_evaluation() {
-        let constraint = Constraint::new(
-            vec![PrimeField64::new(1), PrimeField64::new(1)],
-            1,
-            ConstraintType::Transition,
-        );
-
-        let current_state = vec![PrimeField64::new(1)];
-        let next_state = vec![PrimeField64::new(2)];
-        let challenge = PrimeField64::new(3);
-
-        let result = constraint.evaluate(&current_state, &next_state, challenge);
-        assert_eq!(result, PrimeField64::new(1)); // next[0] - (current[0] + 1) = 2 - (1 + 1) = 0
+    fn test_constraint_builder() {
+        let mut builder = ConstraintSystemBuilder::new();
+        
+        builder
+            .add_constraint(Constraint::new(
+                vec![PrimeField64::new(1), PrimeField64::new(2)],
+                1,
+                ConstraintType::Transition,
+            ))
+            .add_constraint(Constraint::new(
+                vec![PrimeField64::new(3), PrimeField64::new(4)],
+                1,
+                ConstraintType::Boundary,
+            ));
+        
+        let system = builder.build();
+        assert_eq!(system.len(), 2);
     }
 
     #[test]
-    fn test_constraint_system_builder() {
-        let constraints = ConstraintSystemBuilder::new()
-            .linear(PrimeField64::new(2), PrimeField64::new(3))
-            .quadratic(PrimeField64::new(1), PrimeField64::new(0), PrimeField64::new(-1))
-            .build();
+    fn test_constraint_evaluation() {
+        let constraint = Constraint::new(
+            vec![PrimeField64::new(1), PrimeField64::new(2)],
+            1,
+            ConstraintType::Transition,
+        );
+        
+        let current_state = vec![PrimeField64::new(5)];
+        let next_state = vec![PrimeField64::new(7)];
+        let random_challenge = PrimeField64::new(3);
+        
+        let result = constraint.evaluate(&current_state, &next_state, random_challenge);
+        assert_eq!(result, PrimeField64::new(19)); // 1*5 + 2*7 = 19
+    }
 
-        assert_eq!(constraints.len(), 2);
-        assert_eq!(constraints[0].constraint_type, ConstraintType::Algebraic);
-        assert_eq!(constraints[1].constraint_type, ConstraintType::Algebraic);
+    #[test]
+    fn test_constraint_satisfaction() {
+        let constraint = Constraint::new(
+            vec![PrimeField64::new(1), PrimeField64::new(2)],
+            1,
+            ConstraintType::Transition,
+        );
+        
+        let current_state = vec![PrimeField64::new(5)];
+        let next_state = vec![PrimeField64::new(7)];
+        let random_challenge = PrimeField64::new(3);
+        
+        let is_satisfied = constraint.is_satisfied(&current_state, &next_state, random_challenge);
+        assert!(!is_satisfied); // 19 != 0
+    }
+
+    #[test]
+    fn test_constraint_types() {
+        let transition_constraint = Constraint::new(
+            vec![PrimeField64::new(1)],
+            1,
+            ConstraintType::Transition,
+        );
+        
+        let boundary_constraint = Constraint::new(
+            vec![PrimeField64::new(1)],
+            1,
+            ConstraintType::Boundary,
+        );
+        
+        let algebraic_constraint = Constraint::new(
+            vec![PrimeField64::new(1)],
+            1,
+            ConstraintType::Algebraic,
+        );
+        
+        assert_eq!(transition_constraint.constraint_type(), ConstraintType::Transition);
+        assert_eq!(boundary_constraint.constraint_type(), ConstraintType::Boundary);
+        assert_eq!(algebraic_constraint.constraint_type(), ConstraintType::Algebraic);
+    }
+
+    #[test]
+    fn test_constraint_builder_methods() {
+        let mut builder = ConstraintSystemBuilder::new();
+        
+        builder
+            .linear(PrimeField64::new(1), PrimeField64::new(2))
+            .quadratic(PrimeField64::new(1), PrimeField64::new(0), PrimeField64::new(1))
+            .transition(PrimeField64::new(1), PrimeField64::new(1))
+            .boundary(PrimeField64::new(1), PrimeField64::new(0));
+        
+        let system = builder.build();
+        assert_eq!(system.len(), 4);
     }
 }
