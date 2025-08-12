@@ -44,14 +44,22 @@ pub mod polynomial;
 pub mod stark;
 pub mod types;
 pub mod utils;
+pub mod air;
+pub mod proof;
 pub mod winterfell_integration;
+pub mod benchmarks;
+
 
 pub use field::*;
 pub use polynomial::*;
 pub use stark::*;
 pub use types::*;
 pub use utils::*;
+pub use air::*;
+pub use proof::*;
 pub use winterfell_integration::*;
+pub use benchmarks::*;
+
 
 /// Re-exports for common cryptographic operations
 pub mod crypto {
@@ -97,12 +105,20 @@ pub type Result<T> = std::result::Result<T, XfgStarkError>;
 
 /// XFG STARK version information
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// XFG STARK authors information
 pub const AUTHORS: &str = env!("CARGO_PKG_AUTHORS");
+
+/// XFG STARK description information
 pub const DESCRIPTION: &str = env!("CARGO_PKG_DESCRIPTION");
 
 /// Elite senior developer configuration
 pub const ELITE_STANDARDS: &str = "enforced";
+
+/// Cryptographic grade configuration
 pub const CRYPTOGRAPHIC_GRADE: &str = "production_ready";
+
+/// Rust excellence configuration
 pub const RUST_EXCELLENCE: &str = "memory_safe";
 
 #[cfg(test)]

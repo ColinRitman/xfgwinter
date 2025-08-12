@@ -35,7 +35,12 @@ pub enum TypeError {
     
     /// Type mismatch error
     #[error("Type mismatch: expected {expected}, got {actual}")]
-    TypeMismatch { expected: String, actual: String },
+    TypeMismatch { 
+        /// Expected type
+        expected: String, 
+        /// Actual type
+        actual: String 
+    },
     
     /// Cryptographic type error
     #[error("Cryptographic type error: {0}")]
@@ -99,10 +104,9 @@ pub trait FieldElement:
     fn random() -> Self;
 }
 
-/// Trait for polynomial types with field element coefficients
+/// Trait for polynomial operations
 pub trait Polynomial<F: FieldElement>: 
-    Clone + Debug + Display + PartialEq + Eq +
-    Serialize + for<'de> Deserialize<'de>
+    Clone + Debug + Display + PartialEq + Eq
 {
     /// Degree of the polynomial
     fn degree(&self) -> usize;
@@ -134,8 +138,7 @@ pub trait Polynomial<F: FieldElement>:
 
 /// Trait for STARK proof components
 pub trait StarkComponent<F: FieldElement>: 
-    Clone + Debug + Display + PartialEq + Eq +
-    Serialize + for<'de> Deserialize<'de>
+    Clone + Debug + Display + PartialEq + Eq
 {
     /// Validate the component
     fn validate(&self) -> Result<(), TypeError>;
@@ -144,13 +147,12 @@ pub trait StarkComponent<F: FieldElement>:
     fn to_bytes(&self) -> Vec<u8>;
     
     /// Deserialize from bytes
-    fn from_bytes(bytes: &[u8]) -> Result<Self>;
+    fn from_bytes(bytes: &[u8]) -> Result<Self, TypeError>;
 }
 
 /// Trait for secret types with secure zeroization
 pub trait Secret: 
-    Clone + Debug + PartialEq + Eq +
-    Serialize + for<'de> Deserialize<'de>
+    Clone + Debug + PartialEq + Eq
 {
     /// Zeroize the secret in memory
     fn zeroize(&mut self);
@@ -162,7 +164,7 @@ pub trait Secret:
     fn to_bytes(&self) -> Vec<u8>;
     
     /// Convert from bytes (constant-time)
-    fn from_bytes(bytes: &[u8]) -> Result<Self>;
+    fn from_bytes(bytes: &[u8]) -> Result<Self, TypeError>;
 }
 
 /// Type-safe wrapper for cryptographic operations
