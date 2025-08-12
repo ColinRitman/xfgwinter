@@ -239,6 +239,7 @@ impl Display for ConstraintType {
 }
 
 /// Constraint system builder
+#[derive(Debug, Clone)]
 pub struct ConstraintSystemBuilder<F: FieldElement> {
     constraints: Vec<Constraint<F>>,
 }
@@ -332,9 +333,7 @@ mod tests {
 
     #[test]
     fn test_constraint_builder() {
-        let mut builder = ConstraintSystemBuilder::new();
-        
-        builder
+        let builder = ConstraintSystemBuilder::new()
             .add_constraint(Constraint::new(
                 vec![PrimeField64::new(1), PrimeField64::new(2)],
                 1,
@@ -408,10 +407,8 @@ mod tests {
     }
 
     #[test]
-    fn test_constraint_builder_methods() {
-        let mut builder = ConstraintSystemBuilder::new();
-        
-        builder
+    fn test_constraint_system_builder() {
+        let builder = ConstraintSystemBuilder::new()
             .linear(PrimeField64::new(1), PrimeField64::new(2))
             .quadratic(PrimeField64::new(1), PrimeField64::new(0), PrimeField64::new(1))
             .transition(vec![PrimeField64::new(1), PrimeField64::new(1)])
@@ -419,5 +416,11 @@ mod tests {
         
         let system = builder.build();
         assert_eq!(system.len(), 4);
+        
+        // Test individual constraints
+        assert_eq!(system[0].degree(), 1);
+        assert_eq!(system[1].degree(), 2);
+        assert_eq!(system[2].degree(), 1);
+        assert_eq!(system[3].degree(), 1);
     }
 }

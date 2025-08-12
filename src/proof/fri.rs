@@ -476,13 +476,13 @@ mod tests {
 
     #[test]
     fn test_fri_prover_creation() {
-        let prover = FriProver::new(128);
+        let prover: FriProver<PrimeField64> = FriProver::new(128);
         assert_eq!(prover.security_parameter, 128);
     }
 
     #[test]
     fn test_fri_verifier_creation() {
-        let verifier = FriVerifier::new(128);
+        let verifier: FriVerifier<PrimeField64> = FriVerifier::new(128);
         assert_eq!(verifier.security_parameter, 128);
     }
 
@@ -495,9 +495,10 @@ mod tests {
             PrimeField64::new(3),
             PrimeField64::new(4),
         ];
-
-        let proof = prover.prove(&polynomial);
-        assert!(proof.is_ok());
+        
+        let proof = prover.prove(&polynomial).expect("FRI proof generation should succeed");
+        assert!(!proof.layers.is_empty(), "FRI proof should have layers");
+        assert!(!proof.queries.is_empty(), "FRI proof should have queries");
     }
 
     #[test]
@@ -511,11 +512,10 @@ mod tests {
             PrimeField64::new(3),
             PrimeField64::new(4),
         ];
-
-        let proof = prover.prove(&polynomial).unwrap();
-        let result = verifier.verify(&proof, &polynomial);
         
-        assert!(result.is_ok());
-        assert!(result.unwrap());
+        let proof = prover.prove(&polynomial).expect("FRI proof generation should succeed");
+        let is_valid = verifier.verify(&proof, &polynomial).expect("FRI verification should succeed");
+        
+        assert!(is_valid, "FRI proof should be valid");
     }
 }
