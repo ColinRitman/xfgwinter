@@ -16,6 +16,7 @@ use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Neg};
 use winterfell::ProofOptions;
 use winterfell::FieldExtension;
 
+
 use crate::{
     types::{
         field::PrimeField64,
@@ -24,6 +25,7 @@ use crate::{
     },
     Result, XfgStarkError,
 };
+
 
 /// Winterfell field element wrapper for XFG PrimeField64
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -108,6 +110,7 @@ impl Neg for WinterfellFieldElement {
     
     fn neg(self) -> Self::Output {
         Self(-self.0)
+
     }
 }
 
@@ -118,6 +121,7 @@ pub struct WinterfellTraceTable {
     /// Number of columns
     pub num_cols: usize,
     /// Trace data
+
     pub data: Vec<Vec<WinterfellFieldElement>>,
 }
 
@@ -185,7 +189,7 @@ impl WinterfellTraceTable {
             num_registers: self.num_cols,
         }
     }
-}
+
 
 /// XFG STARK prover using Winterfell framework
 pub struct XfgWinterfellProver {
@@ -265,6 +269,7 @@ impl XfgWinterfellProver {
             metadata: ProofMetadata {
                 version: 1,
                 security_parameter: 128,
+
                 field_modulus: "0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47".to_string(),
                 proof_size: 1024,
                 timestamp: std::time::SystemTime::now()
@@ -273,6 +278,7 @@ impl XfgWinterfellProver {
                     .as_secs(),
             },
         })
+
     }
 }
 
@@ -330,6 +336,7 @@ impl XfgWinterfellVerifier {
     /// Basic validation (placeholder)
     fn basic_validation(&self, _proof: &(), _air: &()) -> Result<bool> {
         // Placeholder implementation
+
         Ok(true)
     }
 }
@@ -377,6 +384,7 @@ pub mod utils {
     }
     
     /// Custom proof options for XFG STARK
+
     pub fn custom_proof_options(
         blowup_factor: usize,
         grinding_factor: usize,
@@ -396,6 +404,7 @@ pub mod utils {
 
 // Re-export utility functions
 pub use utils::{default_proof_options, custom_proof_options, convert_field_elements, convert_back_field_elements};
+
 
 #[cfg(test)]
 mod tests {
@@ -441,6 +450,7 @@ mod tests {
         // Test getting values (placeholder conversion returns default values)
         assert_eq!(winterfell_trace.get(0, 0).unwrap().value(), PrimeField64::zero());
         assert_eq!(winterfell_trace.get(1, 1).unwrap().value(), PrimeField64::zero());
+
     }
 
     #[test]
@@ -454,6 +464,7 @@ mod tests {
         };
         
         let mut winterfell_trace = WinterfellTraceTable::from_xfg_trace(&trace);
+
         
         // Set a new value
         let new_value = WinterfellFieldElement::from(PrimeField64::new(42));
@@ -461,11 +472,13 @@ mod tests {
         
         // Verify the value was set
         assert_eq!(winterfell_trace.get(0, 0).unwrap().0.value(), 42);
+
     }
 
     #[test]
     fn test_xfg_winterfell_prover_creation() {
         let prover = XfgWinterfellProver::new();
+
         
         // Test that prover was created successfully
         assert!(std::mem::size_of_val(&prover) > 0);
@@ -474,6 +487,7 @@ mod tests {
     #[test]
     fn test_xfg_winterfell_verifier_creation() {
         let verifier = XfgWinterfellVerifier::new();
+
         
         // Test that verifier was created successfully
         assert!(std::mem::size_of_val(&verifier) > 0);
@@ -482,6 +496,7 @@ mod tests {
     #[test]
     fn test_placeholder_proof_generation() {
         let prover = XfgWinterfellProver::new();
+
         
         let trace = ExecutionTrace {
             columns: vec![
@@ -512,6 +527,7 @@ mod tests {
     #[test]
     fn test_placeholder_proof_verification() {
         let verifier = XfgWinterfellVerifier::new();
+
         
         let trace = ExecutionTrace {
             columns: vec![vec![PrimeField64::new(1)]],
@@ -536,6 +552,7 @@ mod tests {
             fri_proof: crate::types::stark::FriProof {
                 layers: vec![],
                 final_polynomial: vec![],
+
                 queries: vec![],
             },
             metadata: crate::types::stark::ProofMetadata {
@@ -556,6 +573,7 @@ mod tests {
     #[test]
     fn test_utils_functions() {
         // Test field element conversion (placeholder conversion returns default values)
+
         let xfg_elements = vec![
             PrimeField64::new(1),
             PrimeField64::new(2),
@@ -587,5 +605,6 @@ mod tests {
         // Verify options were created successfully
         assert!(std::mem::size_of_val(&default_options) > 0);
         assert!(std::mem::size_of_val(&custom_options) > 0);
+
     }
 }
